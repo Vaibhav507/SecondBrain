@@ -31,12 +31,12 @@ app.post("/api/v1/signup", async (req, res) => {
 
     try {
 
-        if(await UserModel.findOne({
-            username
-        })) {
+        if(await UserModel.findOne({ username })) {
+
             res.status(403).json({
                 message: "User already exists with this username"
             })
+
         } else {
 
             await UserModel.create({
@@ -69,19 +69,33 @@ app.post("/api/v1/signin", async (req, res) => {
         username
     })
 
-    if(user) {
+    try {
 
-        if(user.password === password) {
+        if(user) {
 
-            const token = jwt.sign({
-                id: user._id
-            }, JWT_SECRET);
-
-            res.status(200).json({
-                token: token
+            if(user.password === password) {
+    
+                const token = jwt.sign({
+                    id: user._id
+                }, JWT_SECRET);
+    
+                res.status(200).json({
+                    token: token
+                })
+     
+            }
+        } else {
+            res.status(403).json({
+                message: "Wrong Username or Password"
             })
- 
         }
+        
+    } catch (error) {
+
+        res.status(500).json({
+            message: "Server Error"
+        })
+        
     }
 
 })
@@ -89,22 +103,35 @@ app.post("/api/v1/signin", async (req, res) => {
 app.post("/api/v1/content", middleware, async (req, res) => {
     const { link, type, title, tags } = req.body;
 
-    await ContentModel.create({
-        link,
-        type,
-        title,
-        // @ts-ignore
-        userId: req.userId,
-        tags
-    });
+    try {
 
-    res.json({
-        message: "Content added successfully"
-    });
+        await ContentModel.create({
+            link,
+            type,
+            title,
+            // @ts-ignore
+            userId: req.userId,
+            tags
+        });
+    
+        res.json({
+            message: "Content added successfully"
+        });
+
+        
+    } catch (error) {
+
+        res.status(500).json({
+            message: "Server Error"
+        })
+        
+    }
+
 
 })
 
 app.get("/api/v1/content", middleware, async (req, res) => {
+
     const content = await ContentModel.find({
         // @ts-ignore
         userId: req.userId
@@ -114,12 +141,12 @@ app.get("/api/v1/content", middleware, async (req, res) => {
     });
 
     res.json(content);
-
-    
+  
 
 })
 
 app.delete("/api/v1/content",middleware ,async (req, res) => {
+
     const { contentId } = req.body;
     await ContentModel.deleteOne({
         contentId,
@@ -143,7 +170,6 @@ app.get("/api/v1/brain/:shareLink", (req, res) => {
 
 async function  main() {
     await mongoose.connect(MONGO_URL);
-    console.log("working");
     app.listen(3000);
 }
 
