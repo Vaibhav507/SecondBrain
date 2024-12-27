@@ -5,6 +5,8 @@ import mongoose from "mongoose";
 import { JWT_SECRET, MONGO_URL } from "./config";
 import { middleware } from "./middleware";
 import { z } from "zod";
+import bcrypt from "bcrypt";
+
 
 
 const app = express();
@@ -39,9 +41,11 @@ app.post("/api/v1/signup", async (req, res) => {
 
         } else {
 
+            const hash = await bcrypt.hash(password, 5)
+            
             await UserModel.create({
                 username,
-                password
+                password: hash
             })
 
             res.status(200).json({
@@ -51,6 +55,8 @@ app.post("/api/v1/signup", async (req, res) => {
         }
         
     } catch (error) {
+
+        console.log(error);
 
         res.status(500).json({
             message: "Server Error"
@@ -73,7 +79,9 @@ app.post("/api/v1/signin", async (req, res) => {
 
         if(user) {
 
-            if(user.password === password) {
+            const passwordmatch = await bcrypt.compare(password, user.password)
+
+            if(passwordmatch) {
     
                 const token = jwt.sign({
                     id: user._id
@@ -91,6 +99,8 @@ app.post("/api/v1/signin", async (req, res) => {
         }
         
     } catch (error) {
+
+        
 
         res.status(500).json({
             message: "Server Error"
