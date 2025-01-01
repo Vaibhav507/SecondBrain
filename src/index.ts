@@ -1,11 +1,12 @@
 import express  from "express";
 import jwt from "jsonwebtoken";
-import { ContentModel, UserModel } from "./db";
+import { ContentModel, LinkModel, UserModel } from "./db";
 import mongoose from "mongoose";
 import { JWT_SECRET, MONGO_URL } from "./config";
 import { middleware } from "./middleware";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import { random } from "./util";
 
 
 
@@ -75,11 +76,14 @@ app.post("/api/v1/signin", async (req, res) => {
         username
     })
 
+    
+
     try {
 
         if(user) {
 
             const passwordmatch = await bcrypt.compare(password, user.password)
+            console.log("waiting");
 
             if(passwordmatch) {
     
@@ -91,16 +95,21 @@ app.post("/api/v1/signin", async (req, res) => {
                     token: token
                 })
      
+            } else {
+                
+                res.status(403).json({
+                    message: "Wrong Password"
+                })
             }
+
         } else {
+            
             res.status(403).json({
-                message: "Wrong Username or Password"
+                message: "Wrong Username"
             })
         }
         
     } catch (error) {
-
-        
 
         res.status(500).json({
             message: "Server Error"
@@ -132,8 +141,9 @@ app.post("/api/v1/content", middleware, async (req, res) => {
     } catch (error) {
 
         res.status(500).json({
-            message: "Server Error"
+            message: "Server Error",
         })
+        console.log(error);
         
     }
 
@@ -158,8 +168,9 @@ app.get("/api/v1/content", middleware, async (req, res) => {
 app.delete("/api/v1/content",middleware ,async (req, res) => {
 
     const { contentId } = req.body;
+
     await ContentModel.deleteOne({
-        contentId,
+        _id: contentId,
         // @ts-ignore
         userId: req.userId
     })
@@ -170,11 +181,67 @@ app.delete("/api/v1/content",middleware ,async (req, res) => {
 
 })
 
-app.post("/api/v1/brain/share", (req, res ) => {
+app.post("/api/v1/brain/share", middleware, async (req, res ) => {
+    const { share } = req.body;
+
+    if(share) {
+
+        await LinkModel.create({
+            //@ts-ignore
+            userId: req.userId,
+            hash: random(10)
+        });
+
+    } else {
+
+        await LinkModel.deleteOne({
+            //@ts-ignore
+            userId: req.userId
+        });
+    }
+
+    res.json({
+        message: "Updated Shareable Link"
+    })
+
+
 
 })
 
-app.get("/api/v1/brain/:shareLink", (req, res) => {
+app.get("/api/v1/brain/:shareLink", async (req, res) => {
+
+    const hash = req.params.shareLink;
+
+    const link = await LinkModel.findOne({
+        hash
+    });
+
+    if(!link) {
+
+        res.status(411).json({
+            message: "Incorrect Share Link"
+        })
+
+        return ;
+    } 
+
+    const content = await ContentModel.find({
+        // @ts-ignore
+        userId: link.userId
+    })
+
+    const user = await UserModel.findOne({
+        // @ts-ignore
+        _id: link.userId
+    })
+
+    res.json({
+        username: user?.username,
+        content: content
+    });
+
+
+
 
 })
 
